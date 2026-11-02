@@ -1,0 +1,18 @@
+# Supabase
+.branches
+.temp
+supabase/.branches
+supabase/.temp
+supabase/.env
+.env
+.env.*
+!.env.example
+
+# local build log scratch
+.buildlog.raw
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+node_modules/
