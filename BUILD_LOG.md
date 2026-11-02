@@ -15,9 +15,9 @@ The raw markers below were appended with `date` during the session. Several phas
 | (wait) | Postgres image pull (~0.5 MB/s) | 13:46 | 14:12 | 26 min | Idle time. Test files were re-reviewed against the SQL, which caught 2 bugs before the first run. |
 | 7b | First real run: migrations + seed applied cleanly. First pgTAP run: 7/9 files failing | 14:12 | 14:14 | 2.5 min | Fixed: (1) Postgres checks EXECUTE on functions in views and RLS policies as the *calling* role, so the three functions used there were granted to `authenticated` behind a "self-only" guard; (2) the product RLS read policy saw the pre-update owner; (3) the privilege test called `has_table_privilege` across schemas. Result: **251/251 pass**. |
 | 7c | `supabase db lint` clean, HTTP e2e **14/14** | 14:14 | 14:15 | 1 min | |
-| 10 | Full-history secret scan, publish, CI verification | 14:15 | see below | | |
+| 10 | Full-history secret scan (gitleaks, 6 commits, no leaks), public repo created + pushed, GitHub CI green (2m23s: 251 pgTAP, 38 Deno, 14 e2e, secret scan); placeholder deploy ran and skipped | 14:15 | 14:18 | 3 min | This log update was itself merged through a pull request to show CI running on PRs. |
 
-Active build time, excluding toolchain install and image download waits, is roughly 1 h.
+Wall clock from brief to green CI: 12:54 → 14:18 (1 h 24 min), including 40 min of toolchain setup and a 26 min image-download wait.
 
 ## Raw markers
 
@@ -34,4 +34,5 @@ PHASE 9 docs start 2026-11-02 13:40:05 WAT
 PHASE 7 local stack up, migrations+seed applied clean 2026-11-02 14:12:09 WAT
 PHASE 7 pgTAP 251/251 passing after 3 fixes 2026-11-02 14:14:41 WAT
 PHASE 7 db lint clean + e2e 14/14 2026-11-02 14:14:56 WAT
+PHASE 10 pushed 2026-11-02 14:15:59 WAT (GitHub CI started 13:16:05Z, green 13:18:28Z)
 ```
