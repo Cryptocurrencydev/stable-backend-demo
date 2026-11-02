@@ -1,0 +1,104 @@
+name: deploy
+
+# Placeholder deploy pipeline. Nothing is deployed until the repository
+# variable DEPLOY_ENABLED is set to 'true' and the GitHub environments below
+# hold their secrets. Secrets live ONLY in GitHub environments:
+#
+#   environment "staging" / "production":
+#     secrets:   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_REF,
+#                WEBHOOK_SECRETS, OUTBOX_CRON_SECRET, OUTBOX_SIGNING_SECRET
+#     vars:      OUTBOX_TARGET_URL
+#   "production" should require reviewers (Settings -> Environments).
+#
+# Flow: CI green on main -> staging automatically -> production on manual approval.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.target || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip notice
+        if: vars.DEPLOY_ENABLED != 'true'
+        run: echo "::notice::Deploy is a placeholder. Set repo variable DEPLOY_ENABLED=true and configure the 'staging' environment to enable."
+      - uses: supabase/setup-cli@v1
+        if: vars.DEPLOY_ENABLED == 'true'
+        with:
+          version: 2.122.0
+      - name: Migrate + deploy functions
+        if: vars.DEPLOY_ENABLED == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          WEBHOOK_SECRETS: ${{ secrets.WEBHOOK_SECRETS }}
+          OUTBOX_CRON_SECRET: ${{ secrets.OUTBOX_CRON_SECRET }}
+          OUTBOX_SIGNING_SECRET: ${{ secrets.OUTBOX_SIGNING_SECRET }}
+          OUTBOX_TARGET_URL: ${{ vars.OUTBOX_TARGET_URL }}
+        run: |
+          supabase link --project-ref "$PROJECT_REF"
+          supabase db push --dry-run
+          supabase db push
+          supabase secrets set --project-ref "$PROJECT_REF" \
+            WEBHOOK_SECRETS="$WEBHOOK_SECRETS" \
+            OUTBOX_CRON_SECRET="$OUTBOX_CRON_SECRET" \
+            OUTBOX_SIGNING_SECRET="$OUTBOX_SIGNING_SECRET" \
+            OUTBOX_TARGET_URL="$OUTBOX_TARGET_URL"
+          supabase functions deploy --project-ref "$PROJECT_REF"
+
+  production:
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip notice
+        if: vars.DEPLOY_ENABLED != 'true'
+        run: echo "::notice::Deploy is a placeholder. Configure the 'production' environment (with required reviewers) to enable."
+      - uses: supabase/setup-cli@v1
+        if: vars.DEPLOY_ENABLED == 'true'
+        with:
+          version: 2.122.0
+      - name: Migrate + deploy functions
+        if: vars.DEPLOY_ENABLED == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          WEBHOOK_SECRETS: ${{ secrets.WEBHOOK_SECRETS }}
+          OUTBOX_CRON_SECRET: ${{ secrets.OUTBOX_CRON_SECRET }}
+          OUTBOX_SIGNING_SECRET: ${{ secrets.OUTBOX_SIGNING_SECRET }}
+          OUTBOX_TARGET_URL: ${{ vars.OUTBOX_TARGET_URL }}
+        run: |
+          supabase link --project-ref "$PROJECT_REF"
+          supabase db push --dry-run
+          supabase db push
+          supabase secrets set --project-ref "$PROJECT_REF" \
+            WEBHOOK_SECRETS="$WEBHOOK_SECRETS" \
+            OUTBOX_CRON_SECRET="$OUTBOX_CRON_SECRET" \
+            OUTBOX_SIGNING_SECRET="$OUTBOX_SIGNING_SECRET" \
+            OUTBOX_TARGET_URL="$OUTBOX_TARGET_URL"
+          supabase functions deploy --project-ref "$PROJECT_REF"
